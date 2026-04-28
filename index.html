@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Friday Night Funkin' - Browser Demo</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-wrapper">
+        <canvas id="gameCanvas" width="1280" height="720"></canvas>
+        
+        <div class="ui-overlay">
+            <div class="score-container">
+                <div class="score-label">SCORE</div>
+                <div class="score-value" id="scoreValue">0</div>
+            </div>
+            <div class="combo-container" id="comboContainer">
+                <div class="combo-value" id="comboValue">0</div>
+                <div class="combo-label">COMBO</div>
+            </div>
+            <div class="health-bar-container">
+                <div class="health-bar-fill" id="healthBar"></div>
+            </div>
+        </div>
+        
+        <div class="controls-hint">
+            ←  ↑  ↓  →
+        </div>
+        
+        <button class="reset-btn" id="resetBtn">🔄 RESTART</button>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
