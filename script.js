@@ -1,231 +1,273 @@
+// Game configuration
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Game settings
+// Lane positions (X coordinate for each arrow)
 const LANES = [
-    { key: 'ArrowLeft', x: 280, name: 'left' },
-    { key: 'ArrowUp', x: 480, name: 'up' },
-    { key: 'ArrowDown', x: 680, name: 'down' },
-    { key: 'ArrowRight', x: 880, name: 'right' }
+    { key: 'ArrowLeft', x: 280, y: 450, angle: 0 },
+    { key: 'ArrowUp', x: 480, y: 450, angle: 0 },
+    { key: 'ArrowDown', x: 680, y: 450, angle: 0 },
+    { key: 'ArrowRight', x: 880, y: 450, angle: 0 }
 ];
-const HIT_Y = 550;
-const NOTE_SPEED = 4.5;
 
+const NOTE_SPEED = 5.2;
+const HIT_Y = 510;
+
+// Game state
 let score = 0;
 let combo = 0;
 let health = 100;
 let notes = [];
-let currentSongIndex = 0;
 let gameActive = true;
 let frameCount = 0;
-let lastHitType = '';
-
-// Song pattern [frame, laneIndex]
-const songPatterns = [
-    {
-        name: "Tutorial",
-        notes: [
-            [30,0], [45,1], [60,2], [75,3],
-            [90,0], [105,2], [120,1], [135,3],
-            [160,0], [170,1], [180,2], [190,3],
-            [210,0], [220,0], [230,1], [240,2],
-            [260,3], [270,0], [280,1], [290,2],
-            [310,3], [320,0], [330,1], [340,2],
-            [360,3], [370,0], [380,0], [390,3],
-            [420,0], [435,2], [450,1], [465,3],
-            [490,0], [500,1], [510,2], [520,3],
-            [550,0], [560,1], [570,2], [580,3],
-            [610,0], [620,2], [630,1], [640,3],
-            [670,0], [680,1], [690,2], [700,3],
-            [730,0], [740,0], [750,1], [760,2],
-            [790,3], [810,0], [830,1], [850,2],
-            [880,3], [900,0], [920,1], [940,2],
-            [970,3], [990,0], [1010,1], [1030,2]
-        ]
-    }
-];
-
-let currentPattern = songPatterns[0];
 let nextNoteIndex = 0;
+let currentSong = null;
+let pressedArrows = {};
+let lastHitRating = '';
+let hitEffectTimer = 0;
 
-// Key states
-let pressedKeys = {};
+// Images cache
+const images = {};
 
-// Create placeholder graphics (since we can't actually load images in this demo)
-// In a real project, you'd load PNG files
-function drawPixelArtArrow(x, y, direction, isNote = false) {
-    ctx.save();
-    ctx.shadowBlur = isNote ? 15 : 5;
-    ctx.shadowColor = isNote ? '#ff66ff' : '#000';
-    
-    // Arrow body
-    ctx.fillStyle = isNote ? '#FFD700' : '#FFFFFF';
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 3;
-    
-    const size = 40;
-    const half = size / 2;
-    
-    ctx.beginPath();
-    switch(direction) {
-        case 'left':
-            ctx.moveTo(x, y);
-            ctx.lineTo(x - size, y - half);
-            ctx.lineTo(x - size, y - 15);
-            ctx.lineTo(x - size - 20, y);
-            ctx.lineTo(x - size, y + 15);
-            ctx.lineTo(x - size, y + half);
-            break;
-        case 'up':
-            ctx.moveTo(x, y);
-            ctx.lineTo(x - half, y + size);
-            ctx.lineTo(x - 15, y + size);
-            ctx.lineTo(x, y + size + 20);
-            ctx.lineTo(x + 15, y + size);
-            ctx.lineTo(x + half, y + size);
-            break;
-        case 'down':
-            ctx.moveTo(x, y);
-            ctx.lineTo(x - half, y - size);
-            ctx.lineTo(x - 15, y - size);
-            ctx.lineTo(x, y - size - 20);
-            ctx.lineTo(x + 15, y - size);
-            ctx.lineTo(x + half, y - size);
-            break;
-        case 'right':
-            ctx.moveTo(x, y);
-            ctx.lineTo(x + size, y - half);
-            ctx.lineTo(x + size, y - 15);
-            ctx.lineTo(x + size + 20, y);
-            ctx.lineTo(x + size, y + 15);
-            ctx.lineTo(x + size, y + half);
-            break;
+// Song pattern (Week 1 style)
+const songs = {
+    tutorial: {
+        name: 'Tutorial',
+        bpm: 150,
+        notes: generateWeek1Pattern()
     }
-    ctx.fill();
-    ctx.stroke();
-    
-    ctx.restore();
-}
+};
 
-function drawCharacter(x, y, character) {
-    ctx.save();
-    ctx.shadowBlur = 0;
+function generateWeek1Pattern() {
+    const pattern = [];
+    let frame = 0;
     
-    // Simple pixel art style character
-    ctx.fillStyle = character === 'bf' ? '#3366FF' : '#FF3366';
-    ctx.fillRect(x - 40, y - 80, 80, 80);
-    
-    // Head
-    ctx.fillStyle = '#FFD1A4';
-    ctx.fillRect(x - 30, y - 70, 60, 50);
-    
-    // Eyes
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(x - 20, y - 55, 15, 12);
-    ctx.fillRect(x + 5, y - 55, 15, 12);
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(x - 18, y - 53, 10, 8);
-    ctx.fillRect(x + 7, y - 53, 10, 8);
-    
-    // Mouth (determined by last hit)
-    ctx.fillStyle = '#663300';
-    if(lastHitType === 'perfect') {
-        ctx.fillRect(x - 10, y - 38, 20, 8);
-    } else if(lastHitType === 'miss') {
-        ctx.fillRect(x - 15, y - 38, 30, 6);
-    } else {
-        ctx.fillRect(x - 8, y - 38, 16, 5);
+    // Intro
+    for(let i = 0; i < 8; i++) {
+        pattern.push([frame, i % 4]);
+        frame += 15;
     }
     
-    // Hair
-    ctx.fillStyle = character === 'bf' ? '#FF6600' : '#660000';
-    ctx.fillRect(x - 35, y - 75, 70, 20);
+    // Verse 1
+    const verse1 = [0,1,2,3, 0,2,1,3, 0,0,1,2, 3,0,1,2];
+    for(let i = 0; i < verse1.length; i++) {
+        pattern.push([frame, verse1[i]]);
+        frame += 12 + (i % 2 === 0 ? 0 : 4);
+    }
     
-    // Body
-    ctx.fillStyle = character === 'bf' ? '#0044CC' : '#CC0044';
-    ctx.fillRect(x - 25, y - 25, 50, 40);
+    // Chorus
+    for(let i = 0; i < 32; i++) {
+        pattern.push([frame, i % 4]);
+        frame += 10;
+    }
     
-    ctx.restore();
+    // Verse 2
+    for(let i = 0; i < 24; i++) {
+        pattern.push([frame, Math.floor(Math.random() * 4)]);
+        frame += 12;
+    }
+    
+    // Outro
+    for(let i = 0; i < 16; i++) {
+        pattern.push([frame, i % 4]);
+        frame += 15;
+    }
+    
+    return pattern;
 }
 
+// Load all images from assets
+async function loadImages() {
+    const imageList = {
+        // Stage backgrounds
+        smoke: 'assets/week1/smoke.png',
+        spotlight: 'assets/week1/spotlight.png',
+        stageLight: 'assets/week1/stage_light.png',
+        stageBack: 'assets/week1/stageback.png',
+        stageCurtains: 'assets/week1/stagecurtains.png',
+        stageFront: 'assets/week1/stagefront.png',
+        
+        // Boyfriend animations
+        bfIdle: 'assets/week1/boyfriend/idle.png',
+        bfLeft: 'assets/week1/boyfriend/singLEFT.png',
+        bfUp: 'assets/week1/boyfriend/singUP.png',
+        bfDown: 'assets/week1/boyfriend/singDOWN.png',
+        bfRight: 'assets/week1/boyfriend/singRIGHT.png',
+        
+        // Dad animations
+        dadIdle: 'assets/week1/dad/idle.png',
+        dadLeft: 'assets/week1/dad/singLEFT.png',
+        dadUp: 'assets/week1/dad/singUP.png',
+        dadDown: 'assets/week1/dad/singDOWN.png',
+        dadRight: 'assets/week1/dad/singRIGHT.png',
+        
+        // Notes
+        noteLeft: 'assets/week1/notes/left.png',
+        noteUp: 'assets/week1/notes/up.png',
+        noteDown: 'assets/week1/notes/down.png',
+        noteRight: 'assets/week1/notes/right.png',
+        splash: 'assets/week1/notes/splash.png'
+    };
+    
+    const promises = [];
+    for (const [key, path] of Object.entries(imageList)) {
+        promises.push(new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                images[key] = img;
+                resolve();
+            };
+            img.onerror = () => {
+                console.warn(`Could not load: ${path}`);
+                images[key] = null;
+                resolve();
+            };
+            img.src = path;
+        }));
+    }
+    
+    await Promise.all(promises);
+    console.log('All images loaded');
+}
+
+// Drawing functions with actual graphics
 function drawBackground() {
-    // Gradient sky
-    const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    grad.addColorStop(0, '#1a0533');
-    grad.addColorStop(0.5, '#331a66');
-    grad.addColorStop(1, '#0a0a2a');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Stage back
+    if (images.stageBack) {
+        ctx.drawImage(images.stageBack, 0, 0, canvas.width, canvas.height);
+    } else {
+        ctx.fillStyle = '#1a0533';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
     
-    // Stars
-    ctx.fillStyle = '#FFFFFF';
-    for(let i = 0; i < 100; i++) {
-        if(i % 2 === 0) {
-            ctx.fillRect((i * 131) % canvas.width, (i * 87) % canvas.height, 2, 2);
+    // Stage curtains
+    if (images.stageCurtains) {
+        ctx.drawImage(images.stageCurtains, 0, 0, canvas.width, canvas.height);
+    }
+    
+    // Stage lights
+    if (images.stageLight) {
+        for(let i = 0; i < 4; i++) {
+            ctx.drawImage(images.stageLight, 100 + i * 300, 50, 200, 300);
         }
     }
     
-    // Stage
-    ctx.fillStyle = '#2a1a4a';
-    ctx.fillRect(0, canvas.height - 150, canvas.width, 150);
-    ctx.fillStyle = '#4a2a6a';
-    for(let i = 0; i < 20; i++) {
-        ctx.fillRect(i * 80, canvas.height - 150, 40, 10);
+    // Spotlight effect (changing color based on health)
+    if (images.spotlight) {
+        ctx.globalAlpha = 0.4 + (health / 200);
+        ctx.drawImage(images.spotlight, 400, 100, 500, 400);
+        ctx.globalAlpha = 1;
+    }
+    
+    // Smoke overlay
+    if (images.smoke) {
+        ctx.globalAlpha = 0.3;
+        ctx.drawImage(images.smoke, 0, canvas.height - 300, canvas.width, 300);
+        ctx.globalAlpha = 1;
     }
 }
 
-function drawLanes() {
-    // Lane lines
-    LANES.forEach(lane => {
-        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(lane.x - 45, 0);
-        ctx.lineTo(lane.x - 45, canvas.height);
-        ctx.stroke();
+function drawCharacter(x, y, type, animation) {
+    let imgKey = '';
+    
+    if (type === 'bf') {
+        switch(animation) {
+            case 'left': imgKey = 'bfLeft'; break;
+            case 'up': imgKey = 'bfUp'; break;
+            case 'down': imgKey = 'bfDown'; break;
+            case 'right': imgKey = 'bfRight'; break;
+            default: imgKey = 'bfIdle';
+        }
+    } else {
+        switch(animation) {
+            case 'left': imgKey = 'dadLeft'; break;
+            case 'up': imgKey = 'dadUp'; break;
+            case 'down': imgKey = 'dadDown'; break;
+            case 'right': imgKey = 'dadRight'; break;
+            default: imgKey = 'dadIdle';
+        }
+    }
+    
+    if (images[imgKey]) {
+        ctx.drawImage(images[imgKey], x, y, images[imgKey].width, images[imgKey].height);
+    } else {
+        // Fallback drawing
+        ctx.fillStyle = type === 'bf' ? '#3366FF' : '#FF3366';
+        ctx.fillRect(x, y, 150, 150);
+        ctx.fillStyle = '#FFD1A4';
+        ctx.fillRect(x + 25, y + 20, 100, 80);
+    }
+}
+
+function drawLanesAndNotes() {
+    // Draw stage front (over characters but under notes)
+    if (images.stageFront) {
+        ctx.drawImage(images.stageFront, 0, canvas.height - 200, canvas.width, 200);
+    }
+    
+    // Draw note receptors (static arrows)
+    LANES.forEach((lane, idx) => {
+        const noteImg = images[`note${['Left','Up','Down','Right'][idx]}`];
+        if (noteImg) {
+            ctx.drawImage(noteImg, lane.x - 35, HIT_Y - 35, 70, 70);
+        } else {
+            ctx.fillStyle = 'rgba(100,100,200,0.5)';
+            ctx.fillRect(lane.x - 35, HIT_Y - 35, 70, 70);
+        }
         
-        // Hit zone
-        ctx.fillStyle = 'rgba(255,255,255,0.1)';
-        ctx.fillRect(lane.x - 45, HIT_Y - 25, 90, 50);
-        ctx.strokeStyle = '#ff66cc';
-        ctx.strokeRect(lane.x - 45, HIT_Y - 25, 90, 50);
-        
-        // Base arrows
-        drawPixelArtArrow(lane.x, HIT_Y + 5, lane.name, false);
-        
-        // Key press effect
-        if(pressedKeys[lane.key]) {
-            ctx.fillStyle = 'rgba(255,200,100,0.4)';
-            ctx.fillRect(lane.x - 45, HIT_Y - 25, 90, 50);
+        // Press effect
+        if (pressedArrows[lane.key]) {
+            ctx.strokeStyle = '#ffdd88';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(lane.x - 35, HIT_Y - 35, 70, 70);
         }
     });
-}
-
-function drawNotes() {
+    
+    // Draw falling notes
     notes.forEach(note => {
         const lane = LANES[note.lane];
-        drawPixelArtArrow(lane.x, note.y, lane.name, true);
+        const noteImg = images[`note${['Left','Up','Down','Right'][note.lane]}`];
+        if (noteImg) {
+            ctx.drawImage(noteImg, lane.x - 35, note.y, 70, 70);
+        } else {
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(lane.x - 30, note.y, 60, 60);
+        }
     });
 }
 
-function spawnNote(frame) {
-    while(nextNoteIndex < currentPattern.notes.length && 
-          currentPattern.notes[nextNoteIndex][0] <= frame) {
+function drawHitRating() {
+    if (hitEffectTimer > 0 && lastHitRating) {
+        const effectDiv = document.getElementById('hitEffect');
+        effectDiv.textContent = lastHitRating;
+        effectDiv.style.color = lastHitRating === 'PERFECT!' ? '#ffd700' : 
+                                 lastHitRating === 'GOOD!' ? '#88ff88' : '#ff6666';
+        effectDiv.classList.add('show');
+        setTimeout(() => effectDiv.classList.remove('show'), 300);
+        hitEffectTimer--;
+    }
+}
+
+// Game mechanics
+function spawnNote() {
+    if (!gameActive) return;
+    
+    const song = songs.tutorial;
+    while (nextNoteIndex < song.notes.length && song.notes[nextNoteIndex][0] <= frameCount) {
         notes.push({
-            lane: currentPattern.notes[nextNoteIndex][1],
-            y: -50,
-            frame: frame
+            lane: song.notes[nextNoteIndex][1],
+            y: -70,
+            frame: frameCount
         });
         nextNoteIndex++;
     }
 }
 
 function updateNotes() {
-    for(let i = 0; i < notes.length; i++) {
+    for (let i = 0; i < notes.length; i++) {
         notes[i].y += NOTE_SPEED;
         
-        // Miss if passed hit zone
-        if(notes[i].y > HIT_Y + 60) {
+        if (notes[i].y > HIT_Y + 80) {
             notes.splice(i, 1);
             miss();
             i--;
@@ -233,84 +275,89 @@ function updateNotes() {
     }
 }
 
-function hitNote(laneIndex) {
+function hitNote(laneIndex, key) {
     let closestNote = null;
-    let closestDistance = Infinity;
+    let minDistance = Infinity;
     
-    notes.forEach(note => {
-        if(note.lane === laneIndex) {
+    for (let note of notes) {
+        if (note.lane === laneIndex) {
             const distance = Math.abs(note.y - HIT_Y);
-            if(distance < closestDistance) {
-                closestDistance = distance;
+            if (distance < minDistance) {
+                minDistance = distance;
                 closestNote = note;
             }
         }
-    });
+    }
     
-    if(closestNote) {
-        if(closestDistance <= 15) {
-            perfectHit();
-            createHitEffect('PERFECT!', '#FFD700');
-            lastHitType = 'perfect';
-        } else if(closestDistance <= 35) {
-            goodHit();
-            createHitEffect('GOOD!', '#88FF88');
-            lastHitType = 'good';
+    if (closestNote) {
+        const noteIndex = notes.indexOf(closestNote);
+        
+        if (minDistance <= 20) {
+            // PERFECT
+            const points = 100 + Math.floor(combo * 2);
+            score += points;
+            combo++;
+            health = Math.min(100, health + 5);
+            lastHitRating = 'PERFECT!';
+            hitEffectTimer = 10;
+            createSplashEffect(LANES[laneIndex].x, HIT_Y);
+        } else if (minDistance <= 45) {
+            // GOOD
+            const points = 50 + combo;
+            score += points;
+            combo++;
+            health = Math.min(100, health + 2);
+            lastHitRating = 'GOOD!';
+            hitEffectTimer = 8;
         } else {
+            // Too far - miss
+            notes.splice(noteIndex, 1);
             miss();
-            createHitEffect('MISS', '#FF6666');
             return;
         }
         
-        const index = notes.indexOf(closestNote);
-        notes.splice(index, 1);
+        notes.splice(noteIndex, 1);
+        updateUI();
+        
+        // Animate character singing
+        const arrowName = ['left', 'up', 'down', 'right'][laneIndex];
+        animateCharacter(arrowName);
     } else {
         miss();
     }
 }
 
-function perfectHit() {
-    const points = 100 + Math.floor(combo * 1.5);
-    score += points;
-    combo++;
-    health = Math.min(100, health + 5);
-    updateUI();
+function createSplashEffect(x, y) {
+    if (images.splash) {
+        ctx.save();
+        ctx.globalAlpha = 0.8;
+        ctx.drawImage(images.splash, x - 50, y - 50, 100, 100);
+        ctx.restore();
+    }
 }
 
-function goodHit() {
-    const points = 50 + combo;
-    score += points;
-    combo++;
-    health = Math.min(100, health + 2);
-    updateUI();
+function animateCharacter(direction) {
+    // Visual feedback - the actual animation happens in draw loop
+    // We set a temporary flag
+    window.bfAnimation = direction;
+    window.dadAnimation = direction;
+    setTimeout(() => {
+        window.bfAnimation = null;
+        window.dadAnimation = null;
+    }, 150);
 }
 
 function miss() {
     combo = 0;
-    health = Math.max(0, health - 15);
+    health = Math.max(0, health - 12);
+    lastHitRating = 'MISS!';
+    hitEffectTimer = 8;
     updateUI();
     
-    if(health <= 0) {
+    if (health <= 0) {
         gameActive = false;
-        document.querySelector('.ui-overlay').innerHTML += '<div class="game-over">GAME OVER</div>';
+        showGameOver();
     }
-}
-
-function createHitEffect(text, color) {
-    const effect = document.createElement('div');
-    effect.className = 'hit-effect';
-    effect.textContent = text;
-    effect.style.color = color;
-    effect.style.left = '50%';
-    effect.style.top = '40%';
-    effect.style.position = 'absolute';
-    effect.style.fontSize = '48px';
-    effect.style.fontWeight = 'bold';
-    effect.style.pointerEvents = 'none';
-    effect.style.zIndex = '100';
-    document.querySelector('.game-wrapper').appendChild(effect);
-    
-    setTimeout(() => effect.remove(), 500);
 }
 
 function updateUI() {
@@ -318,15 +365,33 @@ function updateUI() {
     document.getElementById('comboValue').textContent = combo;
     document.getElementById('healthBar').style.width = health + '%';
     
-    // Change health bar color based on health
+    // Show/hide combo box with animation
+    const comboBox = document.getElementById('comboBox');
+    if (combo >= 2) {
+        comboBox.style.display = 'block';
+        comboBox.style.animation = 'none';
+        setTimeout(() => comboBox.style.animation = 'comboPulse 0.3s ease', 10);
+    } else {
+        comboBox.style.display = 'none';
+    }
+    
+    // Change health bar color
     const healthBar = document.getElementById('healthBar');
-    if(health > 70) {
-        healthBar.style.background = 'linear-gradient(90deg, #00ff66, #33ff88)';
-    } else if(health > 30) {
+    if (health > 70) {
+        healthBar.style.background = 'linear-gradient(90deg, #44ff66, #88ff88)';
+    } else if (health > 30) {
         healthBar.style.background = 'linear-gradient(90deg, #ffaa33, #ffcc55)';
     } else {
         healthBar.style.background = 'linear-gradient(90deg, #ff3333, #ff6666)';
     }
+}
+
+function showGameOver() {
+    const container = document.querySelector('.game-container');
+    const gameOverDiv = document.createElement('div');
+    gameOverDiv.className = 'game-over';
+    gameOverDiv.textContent = 'GAME OVER';
+    container.appendChild(gameOverDiv);
 }
 
 function resetGame() {
@@ -337,46 +402,44 @@ function resetGame() {
     nextNoteIndex = 0;
     frameCount = 0;
     gameActive = true;
-    lastHitType = '';
+    lastHitRating = '';
     updateUI();
     
-    // Remove game over message if exists
-    const gameOver = document.querySelector('.game-over');
-    if(gameOver) gameOver.remove();
+    const gameOverDiv = document.querySelector('.game-over');
+    if (gameOverDiv) gameOverDiv.remove();
+    
+    document.getElementById('songName').textContent = 'Tutorial';
 }
 
+// Animation loop
 function gameLoop() {
-    if(!gameActive) {
-        drawBackground();
-        drawCharacter(200, 500, 'bf');
-        drawCharacter(1000, 500, 'dad');
-        drawLanes();
-        
-        ctx.font = 'bold 48px monospace';
-        ctx.fillStyle = '#FF3366';
-        ctx.shadowBlur = 0;
-        ctx.fillText('GAME OVER', canvas.width/2 - 150, canvas.height/2);
-        requestAnimationFrame(gameLoop);
-        return;
+    if (gameActive) {
+        frameCount++;
+        spawnNote();
+        updateNotes();
     }
-    
-    frameCount++;
-    spawnNote(frameCount);
-    updateNotes();
     
     // Draw everything
     drawBackground();
-    drawCharacter(200, 500, 'bf');
-    drawCharacter(1000, 500, 'dad');
-    drawLanes();
-    drawNotes();
     
-    // Check if song finished
-    if(nextNoteIndex >= currentPattern.notes.length && notes.length === 0) {
+    // Draw Dad (enemy) - left side
+    drawCharacter(150, 300, 'dad', window.dadAnimation || 'idle');
+    
+    // Draw Boyfriend - right side
+    drawCharacter(900, 350, 'bf', window.bfAnimation || 'idle');
+    
+    drawLanesAndNotes();
+    drawHitRating();
+    
+    // Check win condition
+    if (nextNoteIndex >= songs.tutorial.notes.length && notes.length === 0 && gameActive) {
         gameActive = false;
-        ctx.font = 'bold 48px monospace';
-        ctx.fillStyle = '#FFD700';
-        ctx.fillText('COMPLETE!', canvas.width/2 - 120, canvas.height/2);
+        const container = document.querySelector('.game-container');
+        const winDiv = document.createElement('div');
+        winDiv.className = 'game-over';
+        winDiv.textContent = 'WEEK COMPLETE!';
+        winDiv.style.color = '#ffd700';
+        container.appendChild(winDiv);
     }
     
     requestAnimationFrame(gameLoop);
@@ -385,24 +448,37 @@ function gameLoop() {
 // Keyboard controls
 document.addEventListener('keydown', (e) => {
     const laneIndex = LANES.findIndex(lane => lane.key === e.key);
-    if(laneIndex !== -1 && gameActive) {
+    if (laneIndex !== -1 && gameActive) {
         e.preventDefault();
-        pressedKeys[e.key] = true;
-        hitNote(laneIndex);
+        pressedArrows[e.key] = true;
+        hitNote(laneIndex, e.key);
         
-        // Visual feedback
+        // Visual feedback on controls panel
+        const keys = document.querySelectorAll('.key-hint');
+        if (keys[laneIndex]) {
+            keys[laneIndex].style.transform = 'translateY(2px)';
+            setTimeout(() => {
+                keys[laneIndex].style.transform = '';
+            }, 100);
+        }
+        
         setTimeout(() => {
-            pressedKeys[e.key] = false;
-        }, 100);
+            pressedArrows[e.key] = false;
+        }, 150);
     }
     
-    if(e.key === 'r' || e.key === 'R') {
+    if (e.key === 'r' || e.key === 'R') {
         resetGame();
     }
 });
 
-document.getElementById('resetBtn').addEventListener('click', resetGame);
+document.getElementById('restartBtn').addEventListener('click', resetGame);
 
-// Start game
-resetGame();
-gameLoop();
+// Initialize game
+async function init() {
+    await loadImages();
+    resetGame();
+    gameLoop();
+}
+
+init();
