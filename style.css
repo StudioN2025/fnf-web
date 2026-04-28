@@ -6,47 +6,45 @@
 }
 
 body {
-    background: linear-gradient(135deg, #1a0b2e 0%, #0a0a1a 100%);
+    background: #000;
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    font-family: 'Courier New', 'VCR OSD Mono', monospace;
+    font-family: 'VCR OSD Mono', 'Courier New', monospace;
     overflow: hidden;
 }
 
-.game-wrapper {
+.game-container {
     position: relative;
     display: inline-block;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-    border-radius: 16px;
-    overflow: hidden;
+    box-shadow: 0 0 50px rgba(0,0,0,0.5);
 }
 
 #gameCanvas {
     display: block;
     cursor: pointer;
-    background: #000;
 }
 
+/* UI Overlay */
 .ui-overlay {
     position: absolute;
-    top: 20px;
+    top: 0;
     left: 0;
     right: 0;
-    padding: 0 30px;
+    padding: 20px 40px;
     pointer-events: none;
     z-index: 10;
 }
 
-.score-container {
+.score-box {
     position: absolute;
     top: 20px;
     left: 30px;
-    background: rgba(0,0,0,0.7);
-    padding: 10px 20px;
+    background: rgba(0,0,0,0.8);
+    padding: 12px 24px;
     border-radius: 12px;
-    backdrop-filter: blur(5px);
+    text-align: center;
     border-left: 4px solid #ff3b7f;
 }
 
@@ -54,26 +52,32 @@ body {
     font-size: 12px;
     color: #ff88b8;
     letter-spacing: 2px;
+    display: block;
 }
 
 .score-value {
-    font-size: 32px;
+    font-size: 36px;
     font-weight: bold;
     color: #fff;
     text-shadow: 0 0 10px #ff3b7f;
 }
 
-.combo-container {
+.combo-box {
     position: absolute;
     top: 20px;
     right: 30px;
-    text-align: center;
-    background: rgba(0,0,0,0.7);
-    padding: 10px 25px;
+    background: rgba(0,0,0,0.8);
+    padding: 12px 30px;
     border-radius: 50px;
-    backdrop-filter: blur(5px);
+    text-align: center;
     border: 2px solid #ffd700;
-    animation: comboGlow 1s infinite;
+    animation: comboPulse 0.5s ease;
+}
+
+@keyframes comboPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
 }
 
 .combo-value {
@@ -81,29 +85,28 @@ body {
     font-weight: bold;
     color: #ffd700;
     text-shadow: 0 0 20px #ffaa00;
+    display: block;
     line-height: 1;
 }
 
-.combo-label {
+.combo-text {
     font-size: 10px;
     color: #ffd700;
     letter-spacing: 3px;
 }
 
-@keyframes comboGlow {
-    0%, 100% { box-shadow: 0 0 10px rgba(255,215,0,0.5); }
-    50% { box-shadow: 0 0 30px rgba(255,215,0,0.8); }
-}
-
 .health-bar-container {
     position: absolute;
-    bottom: 120px;
+    bottom: 180px;
     left: 50%;
     transform: translateX(-50%);
-    width: 500px;
-    height: 30px;
-    background: rgba(0,0,0,0.6);
-    border-radius: 20px;
+    width: 600px;
+}
+
+.health-bar-bg {
+    background: rgba(0,0,0,0.7);
+    height: 28px;
+    border-radius: 14px;
     overflow: hidden;
     border: 2px solid #fff;
 }
@@ -112,89 +115,139 @@ body {
     width: 100%;
     height: 100%;
     background: linear-gradient(90deg, #ff3366, #ff6688);
-    transition: width 0.2s ease;
-    border-radius: 18px;
+    transition: width 0.15s linear;
+    border-radius: 12px;
 }
 
-.controls-hint {
+.song-info {
+    position: absolute;
+    bottom: 130px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.7);
+    padding: 6px 20px;
+    border-radius: 20px;
+    font-size: 20px;
+    color: #fff;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.controls-panel {
     position: absolute;
     bottom: 30px;
     left: 50%;
     transform: translateX(-50%);
-    font-size: 28px;
-    font-weight: bold;
-    color: rgba(255,255,255,0.6);
-    text-shadow: 0 0 10px #000;
-    background: rgba(0,0,0,0.5);
-    padding: 10px 30px;
-    border-radius: 50px;
-    letter-spacing: 15px;
-    font-family: monospace;
-    pointer-events: none;
+    display: flex;
+    gap: 20px;
+    background: rgba(0,0,0,0.6);
+    padding: 12px 30px;
+    border-radius: 60px;
+    backdrop-filter: blur(5px);
 }
 
-.reset-btn {
+.key-hint {
+    width: 60px;
+    height: 60px;
+    background: #1a1a2e;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #ff3b7f;
+    box-shadow: 0 4px 0 #9e2a5a;
+}
+
+.key-hint span {
+    font-size: 32px;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 0 5px #ff3b7f;
+}
+
+.key-hint:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 #9e2a5a;
+}
+
+.restart-btn {
     position: absolute;
     bottom: 30px;
     right: 30px;
     background: #ff3b7f;
     border: none;
     color: white;
-    font-size: 18px;
+    font-size: 16px;
     font-weight: bold;
     padding: 12px 24px;
     border-radius: 40px;
     cursor: pointer;
     font-family: monospace;
-    transition: transform 0.1s, background 0.2s;
+    transition: transform 0.1s;
     z-index: 20;
     box-shadow: 0 4px 0 #9e2a5a;
 }
 
-.reset-btn:active {
+.restart-btn:active {
     transform: translateY(2px);
     box-shadow: 0 1px 0 #9e2a5a;
 }
 
 .hit-effect {
     position: absolute;
-    font-size: 40px;
+    left: 50%;
+    top: 40%;
+    transform: translate(-50%, -50%);
+    font-size: 0;
     font-weight: bold;
     pointer-events: none;
     z-index: 100;
+    white-space: nowrap;
+    text-shadow: 0 0 20px currentColor;
+    transition: all 0.3s ease;
+}
+
+.hit-effect.show {
+    font-size: 64px;
     animation: hitFloat 0.5s ease-out forwards;
-    text-shadow: 0 0 10px #fff;
 }
 
 @keyframes hitFloat {
     0% {
         opacity: 1;
-        transform: translateY(0) scale(0.5);
+        transform: translate(-50%, -50%) scale(0.5);
     }
     100% {
         opacity: 0;
-        transform: translateY(-100px) scale(1.5);
+        transform: translate(-50%, -150%) scale(1.5);
     }
 }
 
-/* Mobile adjustments */
+.game-over {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 72px;
+    color: #ff3366;
+    text-shadow: 0 0 20px #000;
+    z-index: 200;
+    white-space: nowrap;
+    animation: gameOverPulse 1s infinite;
+}
+
+@keyframes gameOverPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Mobile */
 @media (max-width: 768px) {
-    .health-bar-container {
-        width: 300px;
-        bottom: 100px;
-    }
-    
-    .controls-hint {
-        font-size: 20px;
-        letter-spacing: 10px;
-        bottom: 20px;
-    }
-    
-    .score-value {
-        font-size: 24px;
-    }
-    
-    .combo-value {
-        font-size: 32px;
-    }
+    .health-bar-container { width: 350px; bottom: 140px; }
+    .controls-panel { gap: 10px; padding: 8px 20px; }
+    .key-hint { width: 45px; height: 45px; }
+    .key-hint span { font-size: 24px; }
+    .score-value { font-size: 24px; }
+    .combo-value { font-size: 32px; }
+    .restart-btn { padding: 8px 16px; font-size: 12px; }
 }
