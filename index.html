@@ -3,32 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Friday Night Funkin' - Browser Demo</title>
+    <title>Friday Night Funkin' - Week 1</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="game-wrapper">
+    <div class="game-container">
         <canvas id="gameCanvas" width="1280" height="720"></canvas>
         
+        <!-- UI Overlay -->
         <div class="ui-overlay">
-            <div class="score-container">
-                <div class="score-label">SCORE</div>
-                <div class="score-value" id="scoreValue">0</div>
+            <div class="score-box">
+                <span class="score-label">SCORE</span>
+                <span class="score-value" id="scoreValue">0</span>
             </div>
-            <div class="combo-container" id="comboContainer">
-                <div class="combo-value" id="comboValue">0</div>
-                <div class="combo-label">COMBO</div>
+            
+            <div class="combo-box" id="comboBox" style="display: none;">
+                <span class="combo-value" id="comboValue">0</span>
+                <span class="combo-text">COMBO</span>
             </div>
+            
             <div class="health-bar-container">
-                <div class="health-bar-fill" id="healthBar"></div>
+                <div class="health-bar-bg">
+                    <div class="health-bar-fill" id="healthBar"></div>
+                </div>
+            </div>
+            
+            <div class="song-info">
+                <span id="songName">Tutorial</span>
             </div>
         </div>
         
-        <div class="controls-hint">
-            ←  ↑  ↓  →
+        <!-- Controls hint -->
+        <div class="controls-panel">
+            <div class="key-hint"><span>←</span></div>
+            <div class="key-hint"><span>↑</span></div>
+            <div class="key-hint"><span>↓</span></div>
+            <div class="key-hint"><span>→</span></div>
         </div>
         
-        <button class="reset-btn" id="resetBtn">🔄 RESTART</button>
+        <button class="restart-btn" id="restartBtn">RESTART</button>
+        
+        <!-- Hit effect overlay -->
+        <div id="hitEffect" class="hit-effect"></div>
     </div>
     
     <script src="script.js"></script>
